@@ -129,25 +129,27 @@
 
 <div class="wrap">
   <header>
-    <p class="eyebrow">대한항공 연결 · 2025년 실적 기준</p>
+    <p class="eyebrow">대한항공 연결 · <span id="base-eyebrow">2025년</span> 실적 기준</p>
     <h1>유가·환율·물량이 바뀌면 영업이익은 어떻게 되나</h1>
     <p class="lede">
       항공유 가격, 원/달러 환율, 수송 물량, 유류할증료 전가율을 바꿔 가며 연간 영업이익을 계산합니다.
       유류비는 <span class="num">물량 × 항공유가격 × 환율</span> 항등식으로 계산하므로 추정 오차가 없습니다.
     </p>
-    <p class="srcline">
-      기준: 2025년 연결 매출 <span class="num">252,255억</span> · 유류비 <span class="num">67,420억</span> ·
-      영업이익 <span class="num">11,136억</span> · 환산 소비량 <span class="num">53.1백만 배럴</span>
-      (항공유 <span class="num">$89.3</span>, 환율 <span class="num">1,423원</span>)
-    </p>
+    <p class="srcline" id="srcline"></p>
   </header>
 
   <div class="grid">
     <div>
+      <section class="panel" aria-labelledby="base-h">
+        <h2 id="base-h">기준연도</h2>
+        <div class="presets" role="group" aria-label="기준연도 선택" id="years"></div>
+        <p class="ctrl-base" id="base-note"></p>
+      </section>
+
       <section class="panel" aria-labelledby="ctrl-h">
         <h2 id="ctrl-h">시나리오</h2>
         <div class="presets" role="group" aria-label="시나리오 프리셋">
-          <button type="button" data-preset="base" aria-pressed="true">2025년 실적</button>
+          <button type="button" data-preset="base" aria-pressed="true">기준연도 실적</button>
           <button type="button" data-preset="q2">2026Q2 연율</button>
           <button type="button" data-preset="war">2022 고유가</button>
           <button type="button" data-preset="covid">2020 수요붕괴</button>
@@ -159,7 +161,7 @@
             <span class="ctrl-val num" id="jet-val">$89.3</span>
           </div>
           <input type="range" id="jet" min="30" max="220" step="0.5" value="89.3">
-          <div class="ctrl-base">기준 $89.3/배럴 · 2020Q2 저점 $30.9 · 2026Q2 $162.5</div>
+          <div class="ctrl-base" id="jet-base-note"></div>
         </div>
 
         <div class="ctrl">
@@ -168,7 +170,7 @@
             <span class="ctrl-val num" id="fx-val">1,423원</span>
           </div>
           <input type="range" id="fx" min="1000" max="1800" step="5" value="1423">
-          <div class="ctrl-base">기준 1,423원 · 2020 저점 1,118원 · 2026Q2 1,502원</div>
+          <div class="ctrl-base" id="fx-base-note"></div>
         </div>
 
         <div class="ctrl">
@@ -177,7 +179,7 @@
             <span class="ctrl-val num" id="vol-val">0%</span>
           </div>
           <input type="range" id="vol" min="-60" max="30" step="1" value="0">
-          <div class="ctrl-base">2025년 대비 증감 · 코로나기에는 −60% 수준</div>
+          <div class="ctrl-base" id="vol-base-note"></div>
         </div>
 
         <div class="ctrl">
@@ -195,7 +197,7 @@
         <div class="tablewrap">
           <table>
             <thead>
-              <tr><th scope="col">항목</th><th scope="col">기준(2025)</th><th scope="col">시나리오</th><th scope="col">차이</th></tr>
+              <tr><th scope="col">항목</th><th scope="col" id="th-base">기준</th><th scope="col">시나리오</th><th scope="col">차이</th></tr>
             </thead>
             <tbody id="calc-body"></tbody>
             <tfoot id="calc-foot"></tfoot>
@@ -269,8 +271,38 @@
 (function () {
   "use strict";
 
-  var BASE = { revenue: 252255, fuel: 67420, op: 11136, other: 173699, volume: 53.06e6, jet: 89.3, fx: 1423 };
+  // 연도별 기준값 (연결, 억원). volume 은 항공유 기준 환산 소비량(배럴), jet·fx 는 물량가중 평균.
+  // 항등식이 정확히 성립하도록 단가에서 역산했습니다: 유류비 = volume × jet × fx.
+  var YEARS = {
+    2019: { revenue: 126834, fuel: 31716, op: 2575,  other: 92543,  volume: 34751914, jet: 78.3,  fx: 1166 },
+    2020: { revenue: 76062,  fuel: 12382, op: 1089,  other: 62591,  volume: 20678769, jet: 50.8,  fx: 1180 },
+    2021: { revenue: 90168,  fuel: 17861, op: 14180, other: 58128,  volume: 20475670, jet: 76.2,  fx: 1145 },
+    2022: { revenue: 140961, fuel: 41362, op: 28306, other: 71293,  volume: 22831483, jet: 139.8, fx: 1296 },
+    2023: { revenue: 161118, fuel: 48023, op: 17901, other: 95194,  volume: 32078347, jet: 114.5, fx: 1307 },
+    2024: { revenue: 178707, fuel: 49808, op: 21102, other: 107797, volume: 36982972, jet: 98.7,  fx: 1364 },
+    2025: { revenue: 252255, fuel: 67420, op: 11136, other: 173700, volume: 53001803, jet: 89.4,  fx: 1423 }
+  };
+  var YEAR_NOTE = {
+    2019: "코로나 직전. 아시아나 연결 전.",
+    2020: "코로나로 여객 붕괴, 화물이 이익을 떠받친 해.",
+    2021: "화물 호황 정점. 영업이익률 15.7%.",
+    2022: "유가 급등(항공유 $140)과 화물 호황이 겹친 해.",
+    2023: "여객 회복, 화물 정상화. 유가 하락.",
+    2024: "아시아나 인수 직전. 손익은 대한항공 단독.",
+    2025: "아시아나 연결 첫 해. 매출 25조, 영업이익률 4.4%."
+  };
   var FIXED_SHARE = 0.482;              // 유류비 외 비용 중 고정비 (2025 성격별 분류: 인건비·복리후생·감가상각·임차료·제세공과금)
+  var baseYear = 2025;
+  var BASE = YEARS[baseYear];
+
+  // 시나리오 프리셋은 절대 수준으로 정의합니다. 물량은 기준연도 대비 비율로 환산합니다.
+  var PRESETS = {
+    base:  { jet: null,  fx: null, volume: null,     pass: 90 },   // 기준연도 실적 그대로
+    q2:    { jet: 162.5, fx: 1502, volume: 50.8e6,   pass: 66 },   // 2026년 2분기를 연율로
+    war:   { jet: 139.8, fx: 1296, volume: 22.8e6,   pass: 90 },   // 2022년 고유가
+    covid: { jet: 50.8,  fx: 1180, volume: 20.7e6,   pass: 90 }    // 2020년 수요붕괴
+  };
+
   var HIST = [
     {q:"2019Q1",op:1406,jet:75.9},{q:"2019Q2",op:-986,jet:82.0},{q:"2019Q3",op:964,jet:77.5},{q:"2019Q4",op:1191,jet:77.8},
     {q:"2020Q1",op:-828,jet:72.1},{q:"2020Q2",op:1102,jet:30.9},{q:"2020Q3",op:-314,jet:44.7},{q:"2020Q4",op:1130,jet:44.9},
@@ -281,12 +313,6 @@
     {q:"2025Q1",op:4310,jet:93.9},{q:"2025Q2",op:3701,jet:83.5},{q:"2025Q3",op:1575,jet:89.3},{q:"2025Q4",op:1549,jet:90.6},
     {q:"2026Q1",op:5174,jet:88.5},{q:"2026Q2",op:-2071,jet:162.5}
   ];
-  var PRESETS = {
-    base:  { jet: 89.3,  fx: 1423, vol: 0,   pass: 90 },
-    q2:    { jet: 162.5, fx: 1502, vol: -4,  pass: 66 },
-    war:   { jet: 151.9, fx: 1338, vol: 0,   pass: 90 },
-    covid: { jet: 44.7,  fx: 1189, vol: -60, pass: 90 }
-  };
 
   var $ = function (id) { return document.getElementById(id); };
   var inputs = { jet: $("jet"), fx: $("fx"), vol: $("vol"), pass: $("pass") };
@@ -461,13 +487,28 @@
     var svg = $("hist");
     while (svg.firstChild) { svg.removeChild(svg.firstChild); }
     var W = 620, padL = 46, padR = 10;
-    var topH = 150, gap = 26, botH = 86, padT = 14;
+    var topH = 150, gap = 26, botH = 86, padT = 26;
+
+    // 선택한 기준연도 구간을 옅게 표시
+    var firstIdx = -1, lastIdx = -1;
+    HIST.forEach(function (d, i) {
+      if (d.q.slice(0, 4) === String(baseYear)) { if (firstIdx < 0) { firstIdx = i; } lastIdx = i; }
+    });
 
     var ops = HIST.map(function (d) { return d.op; });
     var lo = Math.min.apply(null, ops.concat([0])), hi = Math.max.apply(null, ops);
     var yOp = function (v) { return padT + (hi - v) / (hi - lo) * topH; };
     var bw = (W - padL - padR) / HIST.length * 0.66;
     var xc = function (i) { return padL + (W - padL - padR) / HIST.length * (i + 0.5); };
+
+    if (firstIdx >= 0) {
+      var x0 = padL + (W - padL - padR) / HIST.length * firstIdx;
+      var x1 = padL + (W - padL - padR) / HIST.length * (lastIdx + 1);
+      svg.appendChild(el("rect", { x: x0, y: padT - 10, width: x1 - x0, height: topH + gap + botH + 20,
+        fill: css("--fuel"), opacity: 0.08 }));
+      svg.appendChild(el("text", { x: (x0 + x1) / 2, y: padT - 14, "text-anchor": "middle", "font-size": 9.5,
+        fill: css("--fuel") }, "기준연도"));
+    }
 
     [hi, 0, lo].forEach(function (v) {
       var yy = yOp(v);
@@ -516,17 +557,67 @@
   function setPreset(name) {
     var p = PRESETS[name];
     if (!p) { return; }
-    inputs.jet.value = p.jet; inputs.fx.value = p.fx; inputs.vol.value = p.vol; inputs.pass.value = p.pass;
-    document.querySelectorAll(".presets button").forEach(function (b) {
+    inputs.jet.value = (p.jet === null ? BASE.jet : p.jet);
+    inputs.fx.value = (p.fx === null ? BASE.fx : p.fx);
+    inputs.vol.value = (p.volume === null ? 0 : Math.round((p.volume / BASE.volume - 1) * 100));
+    inputs.pass.value = p.pass;
+    markPreset(name);
+    render();
+  }
+  function markPreset(name) {
+    document.querySelectorAll("[data-preset]").forEach(function (b) {
       b.setAttribute("aria-pressed", String(b.dataset.preset === name));
     });
-    render();
+  }
+
+  // 기준연도 버튼
+  function buildYearButtons() {
+    var host = $("years");
+    Object.keys(YEARS).sort().forEach(function (y) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = y;
+      b.dataset.year = y;
+      b.setAttribute("aria-pressed", String(Number(y) === baseYear));
+      b.addEventListener("click", function () { setBaseYear(Number(y)); });
+      host.appendChild(b);
+    });
+  }
+  function setBaseYear(y) {
+    baseYear = y;
+    BASE = YEARS[y];
+    document.querySelectorAll("#years button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(Number(b.dataset.year) === y));
+    });
+    setPreset("base");          // 기준연도 실적으로 슬라이더를 맞춘 뒤 다시 계산
+    renderBaseInfo();
+    renderHistory();
+  }
+
+  function renderBaseInfo() {
+    $("base-eyebrow").textContent = baseYear + "년";
+    $("th-base").textContent = baseYear + "년 실적";
+    $("base-note").textContent = YEAR_NOTE[baseYear] || "";
+    $("srcline").innerHTML =
+      "기준: " + baseYear + "년 연결 매출 <span class=\"num\">" + BASE.revenue.toLocaleString("ko-KR") + "억</span> · " +
+      "유류비 <span class=\"num\">" + BASE.fuel.toLocaleString("ko-KR") + "억</span> · " +
+      "영업이익 <span class=\"num\">" + BASE.op.toLocaleString("ko-KR") + "억</span> · " +
+      "환산 소비량 <span class=\"num\">" + (BASE.volume / 1e6).toFixed(1) + "백만 배럴</span> " +
+      "(항공유 <span class=\"num\">$" + BASE.jet.toFixed(1) + "</span>, 환율 <span class=\"num\">" +
+      BASE.fx.toLocaleString("ko-KR") + "원</span>)";
+    $("jet-base-note").textContent = baseYear + "년 평균 $" + BASE.jet.toFixed(1) +
+      " · 최저 $50.8(2020) · 최고 $139.8(2022) · 2026Q2 $162.5";
+    $("fx-base-note").textContent = baseYear + "년 평균 " + BASE.fx.toLocaleString("ko-KR") +
+      "원 · 최저 1,145원(2021) · 2026Q2 1,502원";
+    $("vol-base-note").textContent = baseYear + "년(" + (BASE.volume / 1e6).toFixed(1) +
+      "백만 배럴) 대비 증감 · 코로나기 20.5백만, 2025년 53.0백만";
   }
 
   function save() {
     try {
       localStorage.setItem("kal-fuel-scenario", JSON.stringify({
-        jet: inputs.jet.value, fx: inputs.fx.value, vol: inputs.vol.value, pass: inputs.pass.value
+        year: baseYear, jet: inputs.jet.value, fx: inputs.fx.value,
+        vol: inputs.vol.value, pass: inputs.pass.value
       }));
     } catch (e) { /* 저장이 막혀 있어도 화면은 그대로 동작 */ }
   }
@@ -535,6 +626,7 @@
       var raw = localStorage.getItem("kal-fuel-scenario");
       if (!raw) { return; }
       var v = JSON.parse(raw);
+      if (v.year && YEARS[v.year]) { baseYear = Number(v.year); BASE = YEARS[baseYear]; }
       ["jet", "fx", "vol", "pass"].forEach(function (k) {
         if (v[k] !== undefined && v[k] !== null) { inputs[k].value = v[k]; }
       });
@@ -542,12 +634,9 @@
   }
 
   Object.keys(inputs).forEach(function (k) {
-    inputs[k].addEventListener("input", function () {
-      document.querySelectorAll(".presets button").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
-      render();
-    });
+    inputs[k].addEventListener("input", function () { markPreset(""); render(); });
   });
-  document.querySelectorAll(".presets button").forEach(function (b) {
+  document.querySelectorAll(".presets [data-preset]").forEach(function (b) {
     b.addEventListener("click", function () { setPreset(b.dataset.preset); });
   });
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
@@ -555,6 +644,8 @@
   });
 
   restore();
+  buildYearButtons();
+  renderBaseInfo();
   render();
   renderHistory();
 })();

@@ -21,7 +21,7 @@
 | 결과 ④ | **유류할증료 전가율을 실적에서 추정: 0.89~1.19** (2026Q2 단일 분기 0.66). 거의 전액 전가에 가까움 |
 | 적용과 한계 | 같은 구조로 DCF를 만들었으나 **할인율을 데이터로 추정할 수 없었고**(베타 R² 18%), 과거 5개 시점 검증에서 괴리가 컸음 |
 
-분석 문서: [`output/cashflow_analysis.md`](output/cashflow_analysis.md) · 데이터셋: [`output/quarterly.csv`](output/quarterly.csv) · 시나리오 대시보드: [`dashboard/index.html`](dashboard/index.html)
+분석 문서: [`output/cashflow_analysis.md`](output/cashflow_analysis.md) · 데이터셋: [`output/quarterly.csv`](output/quarterly.csv) · 시나리오 대시보드: [`dashboard/index.html`](dashboard/index.html) — 기준연도(2019~2025)를 고르고 유가·환율·물량을 바꿔 영업이익을 비교
 
 ## 2. 데이터셋 만들기
 
@@ -248,7 +248,7 @@ Windows에 Excel이 있으면 `run.py` 마지막에 엑셀 모델을 재계산�
 │  ├─ implied.py        시장가격 역산
 │  ├─ risk.py           민감도·몬테카를로·헤지 분석
 │  └─ report.py         차트·엑셀 모델·요약
-├─ dashboard/           시나리오 대시보드 (유가·환율·물량을 바꿔 영업이익 계산)
+├─ dashboard/           시나리오 대시보드 (기준연도 2019~2025 선택 + 유가·환율·물량 시나리오)
 ├─ reference/           외부 참조 데이터 (항공유 현물가격 CSV + 출처·갱신 방법)
 ├─ tests/               계정 매핑·DCF·시뮬레이션·환율 재평가 테스트 11개
 └─ output/              quarterly.csv, cashflow_analysis.md, summary.md,
