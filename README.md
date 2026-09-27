@@ -224,6 +224,8 @@ python analyze_cashflow.py      # 요인 분해·민감도·브리지 → output
 python run.py                   # DCF 적용 → output/summary.md, valuation_model.xlsx
 python backtest.py              # 과거 시점 검증 → output/backtest.csv
 python -m unittest discover -s tests -t .
+
+python dashboard/build_standalone.py    # 대시보드 배포본 생성 (Vercel 은 push 시 자동 배포)
 ```
 
 Windows에 Excel이 있으면 `run.py` 마지막에 엑셀 모델을 재계산해 파이썬 결과와 일치하는지 자동 확인합니다.
@@ -249,6 +251,10 @@ Windows에 Excel이 있으면 `run.py` 마지막에 엑셀 모델을 재계산�
 │  ├─ risk.py           민감도·몬테카를로·헤지 분석
 │  └─ report.py         차트·엑셀 모델·요약
 ├─ dashboard/           시나리오 대시보드 (기준연도 2019~2025 선택 + 유가·환율·물량 시나리오)
+│  ├─ index.html        본문 (Claude Artifact 용 — 문서 골격 없음)
+│  ├─ build_standalone.py  독립 실행용 HTML 생성기
+│  └─ dist/index.html   Vercel 배포본 (생성물)
+├─ vercel.json          배포 설정 (루트 → 대시보드)
 ├─ reference/           외부 참조 데이터 (항공유 현물가격 CSV + 출처·갱신 방법)
 ├─ tests/               계정 매핑·DCF·시뮬레이션·환율 재평가 테스트 11개
 └─ output/              quarterly.csv, cashflow_analysis.md, summary.md,
