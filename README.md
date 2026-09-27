@@ -6,6 +6,9 @@
 
 대상: 대한항공(003490) 연결 기준 · 2019Q1~2026Q2
 
+**시나리오 대시보드: https://market-linked-valuation-2dtj.vercel.app/**
+기준연도(2019~2025)를 고르고 항공유 가격·환율·수송 물량·전가율을 바꿔 연간 영업이익을 계산합니다.
+
 ---
 
 ## 1. 요약
@@ -21,7 +24,7 @@
 | 결과 ④ | **유류할증료 전가율을 실적에서 추정: 0.89~1.19** (2026Q2 단일 분기 0.66). 거의 전액 전가에 가까움 |
 | 적용과 한계 | 같은 구조로 DCF를 만들었으나 **할인율을 데이터로 추정할 수 없었고**(베타 R² 18%), 과거 5개 시점 검증에서 괴리가 컸음 |
 
-분석 문서: [`output/cashflow_analysis.md`](output/cashflow_analysis.md) · 데이터셋: [`output/quarterly.csv`](output/quarterly.csv) · 시나리오 대시보드: [`dashboard/index.html`](dashboard/index.html) — 기준연도(2019~2025)를 고르고 유가·환율·물량을 바꿔 영업이익을 비교
+분석 문서: [`output/cashflow_analysis.md`](output/cashflow_analysis.md) · 데이터셋: [`output/quarterly.csv`](output/quarterly.csv) · 시나리오 대시보드: <https://market-linked-valuation-2dtj.vercel.app/> (소스: [`dashboard/index.html`](dashboard/index.html))
 
 ## 2. 데이터셋 만들기
 
