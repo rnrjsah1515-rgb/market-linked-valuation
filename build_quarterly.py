@@ -12,6 +12,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src.config import ROOT, api_key, load_config, load_env
+from src.jetfuel import quarterly_usd_per_barrel
 from src.quarterly import expense_note, report_text
 from src.sources import dart, ecos, http
 
@@ -107,9 +108,13 @@ def main():
     print("\n[3/3] 분기 유가·환율 (ECOS)")
     market = quarterly_market(ecos_key, "20190101", "20260930")
 
-    df = income.join(pd.Series(fuel, name="fuel_cost")).join(market).sort_index()
+    jet = quarterly_usd_per_barrel()                       # 분기 평균 현물
+    jet_lag = quarterly_usd_per_barrel(lag_weeks=4).rename("jet_lagged")   # 매입·소비 시차 4주
+    df = (income.join(pd.Series(fuel, name="fuel_cost")).join(market)
+          .join(jet).join(jet_lag).sort_index())
+    df["crack_ratio"] = df["jet"] / df["oil"]                     # 항공유 / 원유
     df["fuel_share"] = df["fuel_cost"] / df["revenue"]
-    df["implied_volume_mbbl"] = df["fuel_cost"] * 1e8 / (df["oil"] * df["fx"]) / 1e6
+    df["implied_volume_mbbl"] = df["fuel_cost"] * 1e8 / (df["jet_lagged"] * df["fx"]) / 1e6
     out = ROOT / "output" / "quarterly.csv"
     df.to_csv(out, encoding="utf-8-sig")
 

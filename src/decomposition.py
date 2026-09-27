@@ -1,18 +1,20 @@
 """유류비·영업이익 변동 요인 분해.
 
-유류비는 네 가지가 곱해진 값으로 본다.
+유류비를 네 요인의 곱으로 본다.
 
-    유류비 = 물량(V) × 원유가격(P, 달러/배럴) × 환율(F, 원/달러) × 크랙배수(C)
+    유류비 = 물량(V) × 항공유가격(J, 달러/배럴) × 환율(F, 원/달러) × 잔차(R)
 
-V 와 C 를 따로 관측할 수 없으므로, 물량 대용치로 **매출(실질)** 을 쓰고 나머지를 크랙배수에 남긴다.
+항공유가격은 미국 걸프연안 현물(FRED DJFUELUSGULF)에 4주 시차를 준 분기평균을 쓴다. 물량은 직접 관측되지 않아
+매출을 대용치로 쓰고, 설명되지 않는 부분은 모두 잔차에 남긴다.
 
-    C·V = 유류비 / (P × F)          … 원유 환산 소비량
-    V   = 매출 / 매출단가 대용치     … 여기서는 매출 자체를 물량 대용치로 사용
-    C   = (C·V) / V                 … 원유 대비 항공유·효율 요인
+    환산 물량 = 유류비 / (J × F)     … 항공유 기준 소비량(배럴)
+    잔차 R    = 환산 물량 / 매출      … 연료 효율, 매출-물량 괴리, 매입 시차, 헤지 손익 귀속
 
-로그 변화율로 분해하면 각 요인의 기여가 더해진다.
+원유 대비 항공유 프리미엄(크랙)은 J / 두바이유 로 따로 본다.
 
-    Δln(유류비) = Δln(물량) + Δln(원유가격) + Δln(환율) + Δln(크랙배수)
+로그 변화율로 분해하면 기여가 더해진다.
+
+    Δln(유류비) = Δln(물량) + Δln(항공유가격) + Δln(환율) + Δln(잔차)
 
 전년 동기 대비로 비교해 계절성을 제거한다.
 """
@@ -25,9 +27,11 @@ import pandas as pd
 def add_factors(df: pd.DataFrame) -> pd.DataFrame:
     """원유 환산 소비량과 매출 대비 크랙배수를 계산한다."""
     out = df.copy()
-    out["oil_equiv_bbl"] = out["fuel_cost"] * 1e8 / (out["oil"] * out["fx"])       # 배럴
+    out["jet_equiv_bbl"] = out["fuel_cost"] * 1e8 / (out["jet_lagged"] * out["fx"])  # 항공유(4주 시차) 환산 물량
+    out["oil_equiv_bbl"] = out["fuel_cost"] * 1e8 / (out["oil"] * out["fx"])       # 원유 기준 환산(참고)
     out["fuel_per_revenue"] = out["fuel_cost"] / out["revenue"]
-    out["crack_index"] = out["oil_equiv_bbl"] / out["revenue"]                     # 매출 1억원당 원유환산 배럴
+    out["residual_index"] = out["jet_equiv_bbl"] / out["revenue"]                  # 매출 1억원당 환산 물량
+    out["crack_ratio"] = out["jet"] / out["oil"]                                   # 항공유 / 원유
     return out
 
 
@@ -45,14 +49,15 @@ def yoy_decomposition(df: pd.DataFrame) -> pd.DataFrame:
         ln = lambda a, b: float(np.log(a / b))
         total = ln(cur["fuel_cost"], old["fuel_cost"])
         volume = ln(cur["revenue"], old["revenue"])
-        oil = ln(cur["oil"], old["oil"])
+        jet = ln(cur["jet_lagged"], old["jet_lagged"])
         fx = ln(cur["fx"], old["fx"])
-        crack = total - volume - oil - fx
+        resid = total - volume - jet - fx
         rows.append({
             "quarter": q,
             "유류비 변동": np.expm1(total),
-            "물량(매출) 기여": volume, "원유가격 기여": oil, "환율 기여": fx, "크랙·효율 기여": crack,
-            "합계 확인": volume + oil + fx + crack - total,
+            "물량(매출) 기여": volume, "항공유가격 기여": jet, "환율 기여": fx, "잔차 기여": resid,
+            "크랙 배수": float(cur["crack_ratio"]),
+            "합계 확인": volume + jet + fx + resid - total,
         })
     return pd.DataFrame(rows).set_index("quarter")
 
@@ -78,8 +83,12 @@ def operating_bridge(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows).set_index("quarter")
 
 
-def fuel_sensitivity(df: pd.DataFrame) -> dict:
-    """전년 동기 대비 로그 변화율 회귀: Δln(유류비) ~ Δln(원유) + Δln(환율) + Δln(매출)."""
+def fuel_sensitivity(df: pd.DataFrame, price_col: str = "jet_lagged") -> dict:
+    """전년 동기 대비 로그 변화율 회귀: Δln(유류비) ~ Δln(가격) + Δln(환율) + Δln(매출).
+
+    price_col="jet" 이면 항공유 가격, "oil" 이면 두바이유를 설명변수로 쓴다.
+    항등식상 계수는 1이어야 하므로, 1에서 벗어난 만큼이 잔차 요인과의 동조도다.
+    """
     dec = yoy_decomposition(df)
     d = add_factors(df)
     y, x = [], []
@@ -88,12 +97,12 @@ def fuel_sensitivity(df: pd.DataFrame) -> dict:
         prev = f"{year - 1}Q{quarter}"
         y.append(np.log(d.loc[q, "fuel_cost"] / d.loc[prev, "fuel_cost"]))
         x.append([1.0,
-                  np.log(d.loc[q, "oil"] / d.loc[prev, "oil"]),
+                  np.log(d.loc[q, price_col] / d.loc[prev, price_col]),
                   np.log(d.loc[q, "fx"] / d.loc[prev, "fx"]),
                   np.log(d.loc[q, "revenue"] / d.loc[prev, "revenue"])])
     y, x = np.array(y), np.array(x)
     beta, *_ = np.linalg.lstsq(x, y, rcond=None)
     resid = y - x @ beta
     r2 = 1 - resid.var() / y.var()
-    return {"상수": beta[0], "원유가격 탄력성": beta[1], "환율 탄력성": beta[2], "매출 탄력성": beta[3],
+    return {"상수": beta[0], f"{price_col} 가격 계수": beta[1], "환율 계수": beta[2], "매출 계수": beta[3],
             "R2": float(r2), "관측치": len(y)}
