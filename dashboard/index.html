@@ -1,0 +1,561 @@
+<title>항공사 연료 시나리오</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #f2f4f7;
+    --panel: #ffffff;
+    --panel-2: #fafbfc;
+    --ink: #14181f;
+    --ink-2: #4c5563;
+    --muted: #7a8494;
+    --line: #dfe4ea;
+    --line-strong: #c3cbd6;
+    --fuel: #c2620a;
+    --fuel-soft: #f6e3cd;
+    --profit: #0f766e;
+    --loss: #b42318;
+    --vol: #3f6ad8;
+    --fx: #6d5bd0;
+    --shadow: 0 1px 2px rgba(20, 24, 31, .06), 0 8px 24px -16px rgba(20, 24, 31, .25);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0d1116;
+      --panel: #161c24;
+      --panel-2: #1b222b;
+      --ink: #e7ebf1;
+      --ink-2: #b3bcca;
+      --muted: #8892a2;
+      --line: #262f3a;
+      --line-strong: #39434f;
+      --fuel: #f0a04b;
+      --fuel-soft: #3a2a17;
+      --profit: #34d0bf;
+      --loss: #f87171;
+      --vol: #7fa0ff;
+      --fx: #a99cf0;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px -18px rgba(0, 0, 0, .9);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d1116;
+    --panel: #161c24;
+    --panel-2: #1b222b;
+    --ink: #e7ebf1;
+    --ink-2: #b3bcca;
+    --muted: #8892a2;
+    --line: #262f3a;
+    --line-strong: #39434f;
+    --fuel: #f0a04b;
+    --fuel-soft: #3a2a17;
+    --profit: #34d0bf;
+    --loss: #f87171;
+    --vol: #7fa0ff;
+    --fx: #a99cf0;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px -18px rgba(0, 0, 0, .9);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans KR", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; }
+  h1 { font-size: clamp(1.35rem, 1.1rem + 1.2vw, 1.9rem); font-weight: 700; margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+  .lede { color: var(--ink-2); margin: 8px 0 0; max-width: 62ch; }
+  .eyebrow { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .num { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums; }
+
+  header { border-bottom: 1px solid var(--line); padding-bottom: 20px; margin-bottom: 24px; }
+  .srcline { margin: 14px 0 0; font-size: .82rem; color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; box-shadow: var(--shadow); }
+  .panel + .panel { margin-top: 20px; }
+  .panel h2 { font-size: .95rem; font-weight: 600; margin: 0 0 14px; letter-spacing: -.01em; }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .presets button {
+    font: inherit; font-size: .82rem; font-weight: 500; color: var(--ink-2);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 12px; cursor: pointer;
+  }
+  .presets button:hover { border-color: var(--line-strong); color: var(--ink); }
+  .presets button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--fuel); outline-offset: 2px; }
+
+  .ctrl { padding-block: 12px; border-top: 1px solid var(--line); }
+  .ctrl:first-of-type { border-top: 0; padding-top: 0; }
+  .ctrl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .ctrl-head label { font-size: .88rem; font-weight: 500; }
+  .ctrl-val { font-size: 1rem; font-weight: 600; }
+  .ctrl-base { font-size: .74rem; color: var(--muted); }
+  input[type="range"] { width: 100%; margin: 8px 0 0; accent-color: var(--fuel); }
+
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  @media (max-width: 560px) { .kpis { grid-template-columns: 1fr; } }
+  .kpi { background: var(--panel); padding: 16px 18px; }
+  .kpi .label { font-size: .78rem; color: var(--muted); }
+  .kpi .value { font-size: clamp(1.45rem, 1.2rem + 1vw, 1.95rem); font-weight: 600; letter-spacing: -.02em; margin-top: 2px; }
+  .kpi .delta { font-size: .82rem; margin-top: 2px; }
+  .up { color: var(--profit); } .down { color: var(--loss); }
+
+  .callout { margin-top: 16px; display: flex; gap: 12px; align-items: flex-start; background: var(--fuel-soft); border-radius: 8px; padding: 12px 14px; }
+  .callout .num { font-weight: 600; }
+  .callout p { margin: 0; font-size: .86rem; color: var(--ink-2); }
+
+  figure { margin: 0; }
+  figcaption { font-size: .8rem; color: var(--muted); margin-top: 8px; }
+  svg { width: 100%; height: auto; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .78rem; color: var(--ink-2); margin-bottom: 10px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+  th, td { text-align: right; padding: 7px 6px; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { color: var(--muted); font-weight: 500; font-size: .78rem; }
+  tfoot td { font-weight: 600; border-bottom: 0; border-top: 1px solid var(--line-strong); }
+  .tablewrap { overflow-x: auto; }
+
+  footer { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 18px; font-size: .82rem; color: var(--ink-2); }
+  footer ul { margin: 8px 0 0; padding-left: 18px; }
+  footer li { margin-bottom: 5px; }
+  footer a { color: inherit; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">대한항공 연결 · 2025년 실적 기준</p>
+    <h1>유가·환율·물량이 바뀌면 영업이익은 어떻게 되나</h1>
+    <p class="lede">
+      항공유 가격, 원/달러 환율, 수송 물량, 유류할증료 전가율을 바꿔 가며 연간 영업이익을 계산합니다.
+      유류비는 <span class="num">물량 × 항공유가격 × 환율</span> 항등식으로 계산하므로 추정 오차가 없습니다.
+    </p>
+    <p class="srcline">
+      기준: 2025년 연결 매출 <span class="num">252,255억</span> · 유류비 <span class="num">67,420억</span> ·
+      영업이익 <span class="num">11,136억</span> · 환산 소비량 <span class="num">53.1백만 배럴</span>
+      (항공유 <span class="num">$89.3</span>, 환율 <span class="num">1,423원</span>)
+    </p>
+  </header>
+
+  <div class="grid">
+    <div>
+      <section class="panel" aria-labelledby="ctrl-h">
+        <h2 id="ctrl-h">시나리오</h2>
+        <div class="presets" role="group" aria-label="시나리오 프리셋">
+          <button type="button" data-preset="base" aria-pressed="true">2025년 실적</button>
+          <button type="button" data-preset="q2">2026Q2 연율</button>
+          <button type="button" data-preset="war">2022 고유가</button>
+          <button type="button" data-preset="covid">2020 수요붕괴</button>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <label for="jet">항공유 가격</label>
+            <span class="ctrl-val num" id="jet-val">$89.3</span>
+          </div>
+          <input type="range" id="jet" min="30" max="220" step="0.5" value="89.3">
+          <div class="ctrl-base">기준 $89.3/배럴 · 2020Q2 저점 $30.9 · 2026Q2 $162.5</div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <label for="fx">원/달러 환율</label>
+            <span class="ctrl-val num" id="fx-val">1,423원</span>
+          </div>
+          <input type="range" id="fx" min="1000" max="1800" step="5" value="1423">
+          <div class="ctrl-base">기준 1,423원 · 2020 저점 1,118원 · 2026Q2 1,502원</div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <label for="vol">수송 물량</label>
+            <span class="ctrl-val num" id="vol-val">0%</span>
+          </div>
+          <input type="range" id="vol" min="-60" max="30" step="1" value="0">
+          <div class="ctrl-base">2025년 대비 증감 · 코로나기에는 −60% 수준</div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-head">
+            <label for="pass">유류할증료 전가율</label>
+            <span class="ctrl-val num" id="pass-val">90%</span>
+          </div>
+          <input type="range" id="pass" min="0" max="120" step="5" value="90">
+          <div class="ctrl-base">유류비 증가분 중 운임으로 넘기는 비율 · 실적 추정 0.9 (표본별 0.66~1.19)</div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="calc-h">
+        <h2 id="calc-h">손익 계산</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th scope="col">항목</th><th scope="col">기준(2025)</th><th scope="col">시나리오</th><th scope="col">차이</th></tr>
+            </thead>
+            <tbody id="calc-body"></tbody>
+            <tfoot id="calc-foot"></tfoot>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="label">연간 영업이익</div>
+          <div class="value num" id="kpi-op">11,136억</div>
+          <div class="delta num" id="kpi-op-delta">기준과 동일</div>
+        </div>
+        <div class="kpi">
+          <div class="label">유류비</div>
+          <div class="value num" id="kpi-fuel">67,420억</div>
+          <div class="delta num" id="kpi-fuel-delta">매출의 26.7%</div>
+        </div>
+        <div class="kpi">
+          <div class="label">영업이익률</div>
+          <div class="value num" id="kpi-margin">4.4%</div>
+          <div class="delta num" id="kpi-margin-delta">기준 4.4%</div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <p id="breakeven">영업이익이 0이 되는 항공유 가격은 <span class="num">$—</span>입니다.</p>
+      </div>
+
+      <section class="panel" aria-labelledby="bridge-h">
+        <h2 id="bridge-h">무엇이 영업이익을 움직였나</h2>
+        <div class="legend">
+          <span><span class="swatch" style="background: var(--vol)"></span>물량</span>
+          <span><span class="swatch" style="background: var(--fuel)"></span>항공유 가격</span>
+          <span><span class="swatch" style="background: var(--fx)"></span>환율</span>
+          <span><span class="swatch" style="background: var(--profit)"></span>유류할증료 전가</span>
+        </div>
+        <figure>
+          <svg id="bridge" viewBox="0 0 620 260" role="img" aria-labelledby="bridge-desc"></svg>
+          <figcaption id="bridge-desc">기준 영업이익에서 각 요인을 차례로 적용한 결과입니다. 단위는 억원.</figcaption>
+        </figure>
+      </section>
+
+      <section class="panel" aria-labelledby="hist-h">
+        <h2 id="hist-h">분기 실적 추이 (2019Q1~2026Q2)</h2>
+        <figure>
+          <svg id="hist" viewBox="0 0 620 300" role="img" aria-labelledby="hist-desc"></svg>
+          <figcaption id="hist-desc">위: 분기 영업이익(억원). 아래: 항공유 가격(달러/배럴, 4주 시차 분기평균). 단위가 다르므로 축을 나눠 그렸습니다.</figcaption>
+        </figure>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <strong>가정과 한계</strong>
+    <ul>
+      <li>유류비 = 환산 소비량 × 항공유가격 × 환율. 소비량은 2025년 유류비를 그해 평균 가격으로 나눈 값(53.1백만 배럴)이고 물량 슬라이더로 조정합니다.</li>
+      <li>유류비 외 비용은 <strong>51.8%가 물량에 연동되고 48.2%는 고정</strong>입니다. 2025년 비용의 성격별 분류 주석에서
+        인건비·퇴직급여(24.0%), 복리후생비(6.4%), 감가상각비(16.4%), 임차료(0.7%), 제세공과금(0.7%)을 고정비로 분류했습니다.</li>
+      <li>전가율 기본값 90%는 실적에서 추정했습니다. 2019~2024년 분기 자료로 <span class="num">Δ매출 = a·Δ여객 + b·Δ화물 + p·유류비 가격효과</span>를
+        회귀하면 p는 표본에 따라 0.89~1.19(t≈5.9)이고, 연결 범위가 같은 2026년 2분기 단일 분기로는 0.66입니다. 물량은 인천공항 노선별 실적을 썼습니다.</li>
+      <li>항공유 가격은 미국 걸프연안 현물(FRED <span class="num">DJFUELUSGULF</span>)입니다. 실제 매입 기준인 싱가포르 MOPS는 유료 데이터입니다.</li>
+      <li>물량이 바뀌어도 운임(단가)은 그대로라고 가정합니다. 수요 감소가 운임 하락을 동반하는 경우는 반영되지 않습니다.</li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var BASE = { revenue: 252255, fuel: 67420, op: 11136, other: 173699, volume: 53.06e6, jet: 89.3, fx: 1423 };
+  var FIXED_SHARE = 0.482;              // 유류비 외 비용 중 고정비 (2025 성격별 분류: 인건비·복리후생·감가상각·임차료·제세공과금)
+  var HIST = [
+    {q:"2019Q1",op:1406,jet:75.9},{q:"2019Q2",op:-986,jet:82.0},{q:"2019Q3",op:964,jet:77.5},{q:"2019Q4",op:1191,jet:77.8},
+    {q:"2020Q1",op:-828,jet:72.1},{q:"2020Q2",op:1102,jet:30.9},{q:"2020Q3",op:-314,jet:44.7},{q:"2020Q4",op:1130,jet:44.9},
+    {q:"2021Q1",op:1016,jet:61.4},{q:"2021Q2",op:1936,jet:71.3},{q:"2021Q3",op:4202,jet:78.0},{q:"2021Q4",op:7027,jet:90.7},
+    {q:"2022Q1",op:7731,jet:103.3},{q:"2022Q2",op:7403,jet:159.2},{q:"2022Q3",op:8007,jet:151.9},{q:"2022Q4",op:5165,jet:141.2},
+    {q:"2023Q1",op:4855,jet:129.4},{q:"2023Q2",op:4772,jet:100.0},{q:"2023Q3",op:5430,jet:109.6},{q:"2023Q4",op:2843,jet:121.8},
+    {q:"2024Q1",op:5375,jet:107.3},{q:"2024Q2",op:4429,jet:106.0},{q:"2024Q3",op:6657,jet:97.7},{q:"2024Q4",op:4641,jet:85.6},
+    {q:"2025Q1",op:4310,jet:93.9},{q:"2025Q2",op:3701,jet:83.5},{q:"2025Q3",op:1575,jet:89.3},{q:"2025Q4",op:1549,jet:90.6},
+    {q:"2026Q1",op:5174,jet:88.5},{q:"2026Q2",op:-2071,jet:162.5}
+  ];
+  var PRESETS = {
+    base:  { jet: 89.3,  fx: 1423, vol: 0,   pass: 90 },
+    q2:    { jet: 162.5, fx: 1502, vol: -4,  pass: 66 },
+    war:   { jet: 151.9, fx: 1338, vol: 0,   pass: 90 },
+    covid: { jet: 44.7,  fx: 1189, vol: -60, pass: 90 }
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var inputs = { jet: $("jet"), fx: $("fx"), vol: $("vol"), pass: $("pass") };
+
+  function won(v) {
+    var r = Math.round(v);
+    return (r < 0 ? "−" : "") + Math.abs(r).toLocaleString("ko-KR") + "억";
+  }
+  function signed(v) {
+    var r = Math.round(v);
+    return (r > 0 ? "+" : r < 0 ? "−" : "") + Math.abs(r).toLocaleString("ko-KR") + "억";
+  }
+
+  // 시나리오 손익: 유류비는 항등식, 매출은 물량 연동 + 유류할증료 전가
+  function model(jet, fx, volPct, passPct) {
+    var g = volPct / 100, p = passPct / 100;
+    var volume = BASE.volume * (1 + g);
+    var fuel = volume * jet * fx / 1e8;
+    var fuelAtBase = volume * BASE.jet * BASE.fx / 1e8;
+    var surcharge = p * (fuel - fuelAtBase);
+    var revenue = BASE.revenue * (1 + g) + surcharge;
+    var other = BASE.other * (FIXED_SHARE + (1 - FIXED_SHARE) * (1 + g));
+    return { revenue: revenue, fuel: fuel, other: other, surcharge: surcharge,
+             op: revenue - fuel - other, volume: volume };
+  }
+
+  function opOf(o) { return o.op; }
+
+  function render() {
+    var jet = parseFloat(inputs.jet.value), fx = parseFloat(inputs.fx.value);
+    var vol = parseFloat(inputs.vol.value), pass = parseFloat(inputs.pass.value);
+
+    $("jet-val").textContent = "$" + jet.toFixed(1);
+    $("fx-val").textContent = Math.round(fx).toLocaleString("ko-KR") + "원";
+    $("vol-val").textContent = (vol > 0 ? "+" : "") + vol + "%";
+    $("pass-val").textContent = pass + "%";
+
+    var s = model(jet, fx, vol, pass);
+    var b = model(BASE.jet, BASE.fx, 0, pass);
+    var dOp = s.op - b.op;
+
+    $("kpi-op").textContent = won(s.op);
+    $("kpi-op").className = "value num " + (s.op >= 0 ? "up" : "down");
+    $("kpi-op-delta").textContent = Math.abs(dOp) < 1 ? "기준과 동일" : signed(dOp) + " vs 기준";
+    $("kpi-op-delta").className = "delta num " + (dOp >= 0 ? "up" : "down");
+    $("kpi-fuel").textContent = won(s.fuel);
+    $("kpi-fuel-delta").textContent = "매출의 " + (s.fuel / s.revenue * 100).toFixed(1) + "%";
+    var margin = s.op / s.revenue * 100;
+    $("kpi-margin").textContent = margin.toFixed(1) + "%";
+    $("kpi-margin").className = "value num " + (margin >= 0 ? "up" : "down");
+    $("kpi-margin-delta").textContent = "기준 " + (b.op / b.revenue * 100).toFixed(1) + "%";
+
+    // 손익분기 항공유 가격: 영업이익은 항공유 가격에 대해 선형
+    var slope = (model(jet + 1, fx, vol, pass).op - s.op);   // 배럴당 1달러 상승 시 영업이익 변화
+    var be = jet - s.op / slope;
+    var beText = (be > 0 && be < 1000)
+      ? "영업이익이 0이 되는 항공유 가격은 <span class=\"num\">$" + be.toFixed(0) + "</span>입니다. " +
+        "배럴당 1달러 오를 때마다 영업이익이 <span class=\"num\">" + signed(slope) + "</span> 움직입니다."
+      : "이 조합에서는 항공유 가격만으로 손익분기에 닿지 않습니다.";
+    $("breakeven").innerHTML = beText;
+
+    renderTable(s, b);
+    renderBridge(jet, fx, vol, pass);
+    save();
+  }
+
+  function renderTable(s, b) {
+    var rows = [
+      ["매출", b.revenue, s.revenue],
+      ["유류비", -b.fuel, -s.fuel],
+      ["기타 영업비용", -b.other, -s.other]
+    ];
+    var html = rows.map(function (r) {
+      var d = r[2] - r[1];
+      return "<tr><td>" + r[0] + "</td><td class=\"num\">" + won(r[1]) + "</td><td class=\"num\">" + won(r[2]) +
+        "</td><td class=\"num " + (d >= 0 ? "up" : "down") + "\">" + signed(d) + "</td></tr>";
+    }).join("");
+    $("calc-body").innerHTML = html;
+    var d = s.op - b.op;
+    $("calc-foot").innerHTML = "<tr><td>영업이익</td><td class=\"num\">" + won(b.op) + "</td><td class=\"num " +
+      (s.op >= 0 ? "up" : "down") + "\">" + won(s.op) + "</td><td class=\"num " + (d >= 0 ? "up" : "down") +
+      "\">" + signed(d) + "</td></tr>";
+  }
+
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, text) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) { n.setAttribute(k, attrs[k]); }
+    if (text !== undefined) { n.textContent = text; }
+    return n;
+  }
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // 워터폴: 기준 → 물량 → 항공유 → 환율 → 전가 → 시나리오
+  function renderBridge(jet, fx, vol, pass) {
+    var svg = $("bridge");
+    while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+    var W = 620, H = 260, padL = 58, padR = 12, padT = 16, padB = 52;
+
+    var base = model(BASE.jet, BASE.fx, 0, pass).op;
+    var afterVol = model(BASE.jet, BASE.fx, vol, pass).op;
+    var afterJet = model(jet, BASE.fx, vol, pass).op;
+    var afterFx = model(jet, fx, vol, 0).op;
+    var final = model(jet, fx, vol, pass).op;
+
+    var steps = [
+      { label: "기준", type: "total", value: base },
+      { label: "물량", type: "step", delta: afterVol - base, color: css("--vol") },
+      { label: "항공유", type: "step", delta: afterJet - afterVol, color: css("--fuel") },
+      { label: "환율", type: "step", delta: afterFx - afterJet, color: css("--fx") },
+      { label: "전가", type: "step", delta: final - afterFx, color: css("--profit") },
+      { label: "시나리오", type: "total", value: final }
+    ];
+
+    var vals = [base, afterVol, afterJet, afterFx, final, 0];
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    if (hi - lo < 1000) { hi = lo + 1000; }
+    var pad = (hi - lo) * 0.12;
+    lo -= pad; hi += pad;
+    var y = function (v) { return padT + (hi - v) / (hi - lo) * (H - padT - padB); };
+    var bw = (W - padL - padR) / steps.length * 0.58;
+    var xc = function (i) { return padL + (W - padL - padR) / steps.length * (i + 0.5); };
+
+    // 0선과 눈금
+    [lo + (hi - lo) * 0.02, 0, hi - (hi - lo) * 0.02].forEach(function (v, idx) {
+      if (idx === 1 && (0 < lo || 0 > hi)) { return; }
+      var yy = y(idx === 1 ? 0 : v);
+      svg.appendChild(el("line", { x1: padL, x2: W - padR, y1: yy, y2: yy,
+        stroke: idx === 1 ? css("--line-strong") : css("--line"), "stroke-width": 1 }));
+      svg.appendChild(el("text", { x: padL - 8, y: yy + 4, "text-anchor": "end", "font-size": 10,
+        fill: css("--muted"), "font-family": "IBM Plex Mono, monospace" },
+        Math.round(idx === 1 ? 0 : v).toLocaleString("ko-KR")));
+    });
+
+    var running = base;
+    steps.forEach(function (st, i) {
+      var top, bottom, color;
+      if (st.type === "total") {
+        top = Math.max(st.value, 0); bottom = Math.min(st.value, 0);
+        color = st.value >= 0 ? css("--profit") : css("--loss");
+      } else {
+        var from = running, to = running + st.delta;
+        running = to;
+        top = Math.max(from, to); bottom = Math.min(from, to);
+        color = st.color;
+      }
+      var yTop = y(top), hgt = Math.max(2, y(bottom) - y(top));
+      svg.appendChild(el("rect", { x: xc(i) - bw / 2, y: yTop, width: bw, height: hgt,
+        fill: color, rx: 2, opacity: st.type === "total" ? 1 : 0.9 }));
+
+      var labelVal = st.type === "total" ? Math.round(st.value).toLocaleString("ko-KR")
+        : (st.delta >= 0 ? "+" : "−") + Math.abs(Math.round(st.delta)).toLocaleString("ko-KR");
+      svg.appendChild(el("text", { x: xc(i), y: yTop - 6, "text-anchor": "middle", "font-size": 11,
+        fill: css("--ink"), "font-weight": 600, "font-family": "IBM Plex Mono, monospace" }, labelVal));
+      svg.appendChild(el("text", { x: xc(i), y: H - padB + 18, "text-anchor": "middle", "font-size": 11,
+        fill: css("--ink-2") }, st.label));
+
+      if (st.type === "step" && i < steps.length - 1) {
+        var yEnd = y(running);
+        svg.appendChild(el("line", { x1: xc(i) + bw / 2, x2: xc(i + 1) - bw / 2, y1: yEnd, y2: yEnd,
+          stroke: css("--line-strong"), "stroke-width": 1, "stroke-dasharray": "3 3" }));
+      } else if (i === 0) {
+        svg.appendChild(el("line", { x1: xc(0) + bw / 2, x2: xc(1) - bw / 2, y1: y(base), y2: y(base),
+          stroke: css("--line-strong"), "stroke-width": 1, "stroke-dasharray": "3 3" }));
+      }
+    });
+    svg.appendChild(el("text", { x: padL - 8, y: padT - 4, "text-anchor": "end", "font-size": 9,
+      fill: css("--muted") }, "억원"));
+  }
+
+  function renderHistory() {
+    var svg = $("hist");
+    while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+    var W = 620, padL = 46, padR = 10;
+    var topH = 150, gap = 26, botH = 86, padT = 14;
+
+    var ops = HIST.map(function (d) { return d.op; });
+    var lo = Math.min.apply(null, ops.concat([0])), hi = Math.max.apply(null, ops);
+    var yOp = function (v) { return padT + (hi - v) / (hi - lo) * topH; };
+    var bw = (W - padL - padR) / HIST.length * 0.66;
+    var xc = function (i) { return padL + (W - padL - padR) / HIST.length * (i + 0.5); };
+
+    [hi, 0, lo].forEach(function (v) {
+      var yy = yOp(v);
+      svg.appendChild(el("line", { x1: padL, x2: W - padR, y1: yy, y2: yy,
+        stroke: v === 0 ? css("--line-strong") : css("--line"), "stroke-width": 1 }));
+      svg.appendChild(el("text", { x: padL - 6, y: yy + 3, "text-anchor": "end", "font-size": 9,
+        fill: css("--muted"), "font-family": "IBM Plex Mono, monospace" }, Math.round(v).toLocaleString("ko-KR")));
+    });
+    svg.appendChild(el("text", { x: padL, y: padT - 4, "font-size": 10, fill: css("--ink-2") }, "분기 영업이익 (억원)"));
+
+    HIST.forEach(function (d, i) {
+      var y0 = yOp(Math.max(d.op, 0)), y1 = yOp(Math.min(d.op, 0));
+      svg.appendChild(el("rect", { x: xc(i) - bw / 2, y: y0, width: bw, height: Math.max(1.5, y1 - y0),
+        fill: d.op >= 0 ? css("--profit") : css("--loss"), rx: 1.5 }));
+    });
+
+    var jetTop = padT + topH + gap;
+    var jets = HIST.map(function (d) { return d.jet; });
+    var jlo = Math.min.apply(null, jets) * 0.9, jhi = Math.max.apply(null, jets) * 1.05;
+    var yJet = function (v) { return jetTop + (jhi - v) / (jhi - jlo) * botH; };
+    [jhi, jlo].forEach(function (v) {
+      var yy = yJet(v);
+      svg.appendChild(el("line", { x1: padL, x2: W - padR, y1: yy, y2: yy, stroke: css("--line"), "stroke-width": 1 }));
+      svg.appendChild(el("text", { x: padL - 6, y: yy + 3, "text-anchor": "end", "font-size": 9,
+        fill: css("--muted"), "font-family": "IBM Plex Mono, monospace" }, "$" + Math.round(v)));
+    });
+    svg.appendChild(el("text", { x: padL, y: jetTop - 4, "font-size": 10, fill: css("--ink-2") }, "항공유 가격 (달러/배럴)"));
+
+    var pts = HIST.map(function (d, i) { return xc(i) + "," + yJet(d.jet); }).join(" ");
+    svg.appendChild(el("polyline", { points: pts, fill: "none", stroke: css("--fuel"), "stroke-width": 2,
+      "stroke-linejoin": "round" }));
+    [0, HIST.length - 1].forEach(function (i) {
+      svg.appendChild(el("circle", { cx: xc(i), cy: yJet(HIST[i].jet), r: 3.5, fill: css("--fuel") }));
+    });
+
+    HIST.forEach(function (d, i) {
+      if (d.q.slice(-2) !== "Q1") { return; }
+      svg.appendChild(el("text", { x: xc(i), y: jetTop + botH + 16, "text-anchor": "middle", "font-size": 9.5,
+        fill: css("--muted") }, d.q.slice(0, 4)));
+    });
+    var worst = HIST[HIST.length - 1];
+    svg.appendChild(el("text", { x: xc(HIST.length - 1), y: yOp(worst.op) + 14, "text-anchor": "end",
+      "font-size": 9.5, fill: css("--loss") }, "2026Q2 −2,071"));
+  }
+
+  function setPreset(name) {
+    var p = PRESETS[name];
+    if (!p) { return; }
+    inputs.jet.value = p.jet; inputs.fx.value = p.fx; inputs.vol.value = p.vol; inputs.pass.value = p.pass;
+    document.querySelectorAll(".presets button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.preset === name));
+    });
+    render();
+  }
+
+  function save() {
+    try {
+      localStorage.setItem("kal-fuel-scenario", JSON.stringify({
+        jet: inputs.jet.value, fx: inputs.fx.value, vol: inputs.vol.value, pass: inputs.pass.value
+      }));
+    } catch (e) { /* 저장이 막혀 있어도 화면은 그대로 동작 */ }
+  }
+  function restore() {
+    try {
+      var raw = localStorage.getItem("kal-fuel-scenario");
+      if (!raw) { return; }
+      var v = JSON.parse(raw);
+      ["jet", "fx", "vol", "pass"].forEach(function (k) {
+        if (v[k] !== undefined && v[k] !== null) { inputs[k].value = v[k]; }
+      });
+    } catch (e) { /* 무시 */ }
+  }
+
+  Object.keys(inputs).forEach(function (k) {
+    inputs[k].addEventListener("input", function () {
+      document.querySelectorAll(".presets button").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+      render();
+    });
+  });
+  document.querySelectorAll(".presets button").forEach(function (b) {
+    b.addEventListener("click", function () { setPreset(b.dataset.preset); });
+  });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+    render(); renderHistory();
+  });
+
+  restore();
+  render();
+  renderHistory();
+})();
+</script>
