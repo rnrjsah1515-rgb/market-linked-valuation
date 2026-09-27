@@ -104,11 +104,18 @@
 
   .ctrl { padding-block: 12px; border-top: 1px solid var(--line); }
   .ctrl:first-of-type { border-top: 0; padding-top: 0; }
-  .ctrl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-  .ctrl-head label { font-size: .88rem; font-weight: 500; }
-  .ctrl-val { font-size: 1rem; font-weight: 600; }
   .ctrl-base { font-size: .74rem; color: var(--muted); }
-  input[type="range"] { width: 100%; margin: 8px 0 0; accent-color: var(--fuel); }
+  input[type="range"] { width: 100%; margin: 10px 0 0; accent-color: var(--fuel); }
+
+  .ctrl-label { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .ctrl-label label { font-size: .88rem; font-weight: 500; }
+  .chg { font-size: .78rem; font-weight: 600; }
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .cmp-col { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--panel-2); }
+  .cmp-col.changed { border-color: var(--fuel); background: var(--fuel-soft); }
+  .cmp-key { display: block; font-size: .7rem; color: var(--muted); }
+  .cmp-val { display: block; font-size: 1.02rem; font-weight: 600; margin-top: 1px; }
+  .cmp-sub { display: block; font-size: .7rem; color: var(--muted); }
 
   .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   @media (max-width: 560px) { .kpis { grid-template-columns: 1fr; } }
@@ -172,39 +179,87 @@
         </div>
 
         <div class="ctrl">
-          <div class="ctrl-head">
+          <div class="ctrl-label">
             <label for="jet">항공유 가격</label>
-            <span class="ctrl-val num" id="jet-val">$89.3</span>
+            <span class="chg num" id="jet-chg"></span>
           </div>
-          <input type="range" id="jet" min="30" max="220" step="0.5" value="89.3">
+          <div class="cmp">
+            <div class="cmp-col">
+              <span class="cmp-key">기준 <span id="jet-base-label"></span></span>
+              <span class="cmp-val num" id="jet-base"></span>
+              <span class="cmp-sub" id="jet-base-sub"></span>
+            </div>
+            <div class="cmp-col" id="jet-scen-col">
+              <span class="cmp-key">시나리오</span>
+              <span class="cmp-val num" id="jet-val"></span>
+              <span class="cmp-sub" id="jet-sub"></span>
+            </div>
+          </div>
+          <input type="range" id="jet" min="30" max="220" step="0.5" value="89.4">
           <div class="ctrl-base" id="jet-base-note"></div>
         </div>
 
         <div class="ctrl">
-          <div class="ctrl-head">
+          <div class="ctrl-label">
             <label for="fx">원/달러 환율</label>
-            <span class="ctrl-val num" id="fx-val">1,423원</span>
+            <span class="chg num" id="fx-chg"></span>
+          </div>
+          <div class="cmp">
+            <div class="cmp-col">
+              <span class="cmp-key">기준 <span id="fx-base-label"></span></span>
+              <span class="cmp-val num" id="fx-base"></span>
+              <span class="cmp-sub" id="fx-base-sub"></span>
+            </div>
+            <div class="cmp-col" id="fx-scen-col">
+              <span class="cmp-key">시나리오</span>
+              <span class="cmp-val num" id="fx-val"></span>
+              <span class="cmp-sub" id="fx-sub"></span>
+            </div>
           </div>
           <input type="range" id="fx" min="1000" max="1800" step="5" value="1423">
           <div class="ctrl-base" id="fx-base-note"></div>
         </div>
 
         <div class="ctrl">
-          <div class="ctrl-head">
+          <div class="ctrl-label">
             <label for="vol">수송 물량</label>
-            <span class="ctrl-val num" id="vol-val">0%</span>
+            <span class="chg num" id="vol-chg"></span>
+          </div>
+          <div class="cmp">
+            <div class="cmp-col">
+              <span class="cmp-key">기준 <span id="vol-base-label"></span></span>
+              <span class="cmp-val num" id="vol-base"></span>
+              <span class="cmp-sub" id="vol-base-sub"></span>
+            </div>
+            <div class="cmp-col" id="vol-scen-col">
+              <span class="cmp-key">시나리오</span>
+              <span class="cmp-val num" id="vol-val"></span>
+              <span class="cmp-sub" id="vol-sub"></span>
+            </div>
           </div>
           <input type="range" id="vol" min="-60" max="30" step="1" value="0">
           <div class="ctrl-base" id="vol-base-note"></div>
         </div>
 
         <div class="ctrl">
-          <div class="ctrl-head">
+          <div class="ctrl-label">
             <label for="pass">유류할증료 전가율</label>
-            <span class="ctrl-val num" id="pass-val">90%</span>
+            <span class="chg num" id="pass-chg"></span>
+          </div>
+          <div class="cmp">
+            <div class="cmp-col">
+              <span class="cmp-key">기준 <span id="pass-base-label"></span></span>
+              <span class="cmp-val num" id="pass-base"></span>
+              <span class="cmp-sub" id="pass-base-sub"></span>
+            </div>
+            <div class="cmp-col" id="pass-scen-col">
+              <span class="cmp-key">시나리오</span>
+              <span class="cmp-val num" id="pass-val"></span>
+              <span class="cmp-sub" id="pass-sub"></span>
+            </div>
           </div>
           <input type="range" id="pass" min="0" max="120" step="5" value="90">
-          <div class="ctrl-base">유류비 증가분 중 운임으로 넘기는 비율 · 실적 추정 0.9 (표본별 0.66~1.19)</div>
+          <div class="ctrl-base" id="pass-base-note"></div>
         </div>
       </section>
 
@@ -246,16 +301,14 @@
       </div>
 
       <section class="panel" aria-labelledby="inputs-h">
-        <h2 id="inputs-h">가정 비교 — 기준 vs 시나리오</h2>
+        <h2 id="inputs-h">요인별 유류비 영향</h2>
         <div class="tablewrap">
           <table>
             <thead>
               <tr>
-                <th scope="col">항목</th>
-                <th scope="col" id="th-inputs-base">기준</th>
-                <th scope="col">시나리오</th>
+                <th scope="col">요인</th>
                 <th scope="col">변화</th>
-                <th scope="col">유류비 영향</th>
+                <th scope="col">이 요인만 바꿨을 때 유류비</th>
               </tr>
             </thead>
             <tbody id="inputs-body"></tbody>
@@ -379,10 +432,7 @@
     var jet = parseFloat(inputs.jet.value), fx = parseFloat(inputs.fx.value);
     var vol = parseFloat(inputs.vol.value), pass = parseFloat(inputs.pass.value);
 
-    $("jet-val").textContent = "$" + jet.toFixed(1);
-    $("fx-val").textContent = Math.round(fx).toLocaleString("ko-KR") + "원";
-    $("vol-val").textContent = (vol > 0 ? "+" : "") + vol + "%";
-    $("pass-val").textContent = pass + "%";
+    renderCompare(jet, fx, vol, pass);
 
     var s = model(jet, fx, vol, pass);
     var b = model(BASE.jet, BASE.fx, 0, pass);
@@ -414,7 +464,39 @@
     save();
   }
 
-  // 입력값 비교표: 기준연도 값과 시나리오 값을 나란히 놓고, 각 요인이 유류비에 주는 영향까지 표시
+  // 슬라이더마다 기준연도 값과 시나리오 값을 나란히 보여준다
+  function renderCompare(jet, fx, vol, pass) {
+    var g = vol / 100;
+    var baseVolM = BASE.volume / 1e6, scenVolM = BASE.volume * (1 + g) / 1e6;
+    var rows = [
+      { id: "jet", baseLabel: baseYear + "년", base: "$" + BASE.jet.toFixed(1), scen: "$" + jet.toFixed(1),
+        chg: pct(jet / BASE.jet - 1), worse: jet > BASE.jet,
+        baseSub: "", scenSub: "" },
+      { id: "fx", baseLabel: baseYear + "년", base: BASE.fx.toLocaleString("ko-KR") + "원",
+        scen: Math.round(fx).toLocaleString("ko-KR") + "원", chg: pct(fx / BASE.fx - 1), worse: fx > BASE.fx,
+        baseSub: "", scenSub: "" },
+      { id: "vol", baseLabel: baseYear + "년", base: baseVolM.toFixed(1) + "백만bbl",
+        scen: scenVolM.toFixed(1) + "백만bbl", chg: pct(g), worse: false,
+        baseSub: "환산 소비량", scenSub: (vol > 0 ? "+" : "") + vol + "%" },
+      { id: "pass", baseLabel: "실적 추정", base: "90%", scen: pass + "%",
+        chg: (pass === 90 ? "—" : (pass > 90 ? "+" : "−") + Math.abs(pass - 90) + "%p"), worse: pass < 90,
+        baseSub: "표본별 0.66~1.19", scenSub: "" }
+    ];
+    rows.forEach(function (r) {
+      $(r.id + "-base-label").textContent = r.baseLabel;
+      $(r.id + "-base").textContent = r.base;
+      $(r.id + "-base-sub").textContent = r.baseSub;
+      $(r.id + "-val").textContent = r.scen;
+      $(r.id + "-sub").textContent = r.scenSub;
+      var changed = r.chg !== "—";
+      $(r.id + "-scen-col").className = "cmp-col" + (changed ? " changed" : "");
+      var chgEl = $(r.id + "-chg");
+      chgEl.textContent = changed ? r.chg : "기준과 동일";
+      chgEl.className = "chg num " + (!changed ? "" : (r.worse ? "down" : "up"));
+    });
+  }
+
+  // 요인별 유류비 영향
   function renderInputs(jet, fx, vol, pass) {
     var g = vol / 100;
     var baseVol = BASE.volume / 1e6, scenVol = BASE.volume * (1 + g) / 1e6;
@@ -437,16 +519,12 @@
     ];
     $("inputs-body").innerHTML = rows.map(function (r) {
       var impact = r.impact === null
-        ? "<span style=\"color: var(--muted)\">매출 쪽</span>"
+        ? "<span style=\"color: var(--muted)\">매출에 작용</span>"
         : "<span class=\"" + (r.impact <= 0 ? "up" : "down") + "\">" + signed(r.impact) + "</span>";
-      var same = r.chg === "—" || r.chg === "+0.0%" || r.chg === "0.0%";
       return "<tr><td>" + r.label + "</td>" +
-        "<td class=\"num\">" + r.base + "</td>" +
-        "<td class=\"num\"" + (same ? "" : " style=\"font-weight:600\"") + ">" + r.scen + "</td>" +
         "<td class=\"num\">" + r.chg + "</td>" +
         "<td class=\"num\">" + impact + "</td></tr>";
     }).join("");
-    $("th-inputs-base").textContent = baseYear + "년 실적";
   }
   function pct(v) {
     if (Math.abs(v) < 0.0005) { return "—"; }
