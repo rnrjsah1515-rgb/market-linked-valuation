@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 
 from src.config import ROOT
-from src.decomposition import add_factors, fuel_sensitivity, operating_bridge, yoy_decomposition
+from src.decomposition import (add_factors, fuel_sensitivity, operating_bridge, pass_through_frame,
+                               pass_through_quarter, pass_through_regression, yoy_decomposition)
 from src.report import BLUE, BLUE_ORDINAL, COMMA, INK, INK2, ORANGE, SURFACE, plt
 
 FACTORS = ["물량(매출) 기여", "항공유가격 기여", "환율 기여", "잔차 기여"]
@@ -122,6 +123,16 @@ def main():
     fuel_y = last["fuel_cost"].sum()
     q2 = dec.loc["2026Q2"]
 
+    # 유류할증료 전가율: 연결 범위와 화물 정의가 같은 2019~2024년 데이터(전년 대비 2020~2024년)로 추정
+    volume = pd.read_csv(ROOT / "reference" / "icn_volume_quarterly.csv", index_col="quarter", encoding="utf-8-sig")
+    pt_frame = pass_through_frame(df, volume)
+    samples = [("2019~2024 전체", "2020"), ("2020년 제외", "2021"), ("2022년 이후", "2022")]
+    pt = {label: pass_through_regression(pt_frame, start, "2024") for label, start in samples}
+    pt_full = pt["2019~2024 전체"]
+    pt_q2 = pass_through_quarter(pt_frame, "2026Q2", pt_full["여객 계수"])
+    pt_md = "\n".join(f"| {label} | {r['관측치']} | {r['전가율']:.2f} | {r['하한']:.2f}~{r['상한']:.2f} | "
+                      f"{r['t']:.1f} | {r['R2']:.2f} |" for label, r in pt.items())
+
     text = f"""# 유가·환율이 현금흐름에 미친 영향 — 분기 실증 분석
 
 대한항공 연결 기준 {df.index[0]}~{df.index[-1]} ({len(df)}개 분기).
@@ -190,7 +201,34 @@ Zero Cost Collar 등으로 헤지한다고 공시하는데, 기초자산이 원�
 항공유 기준 환산 소비량은 분기 8~13백만 배럴 범위에서 안정적입니다. 공시된 단독 소모량(분기 약 7.6백만 배럴)에
 자회사와 아시아나를 더한 규모와 맞아떨어져, 가격 대용치 선택이 타당했음을 뒷받침합니다.
 
-## 5. 부록 — 회귀 계수를 쓰지 않은 이유
+## 5. 유류할증료는 얼마나 전가되나
+
+유가가 오르면 항공사는 유류할증료로 일부를 운임에 넘깁니다. 전년 동기 대비 변화로 전가율 p를 추정했습니다.
+
+    Δ매출 = c + a·Δ여객 + b·Δ화물 + p·(유류비 가격효과)
+    유류비 가격효과 = 환산 소비량 × (항공유 4주 시차 × 환율) 변동 = 유류비 × (1 − 전년 단가 / 당해 단가)
+
+가격효과는 소비량을 당분기로 고정해 물량 변화를 뺀 순수 단가 요인이고, 물량은 인천공항 국제선 출발 운송실적
+(연결 대상 항공사)의 여객·화물로 통제했습니다. 연결 범위와 화물 정의가 같은 2019~2024년 자료만 써서
+관측치는 2020~2024년 분기입니다.
+
+| 표본 | 관측치 | 전가율 p | 95% 구간 | t | R² |
+|---|---|---|---|---|---|
+{pt_md}
+| 2026Q2 단일 분기 | 1 | {pt_q2:.2f} | — | — | — |
+
+2026Q2 단일 분기는 매출 증가 {pt_frame.loc['2026Q2', 'd_revenue']:,.0f}억원에서 여객 효과(전체 표본 계수
+{pt_full['여객 계수']:,.0f}억원/백만 명 × Δ여객 {pt_frame.loc['2026Q2', 'd_pax']:+.2f}백만 명)를 빼고
+가격효과 {pt_frame.loc['2026Q2', 'price_effect']:,.0f}억원으로 나눈 값입니다. 2025년부터 화물 정의가 달라 화물은 빼고,
+상수(추세)도 빼서 여객으로 설명되지 않는 매출 변동을 모두 전가로 봤습니다.
+
+**평상시에는 거의 전액 전가됩니다.** 다만 2021~2022년은 유가 급등과 코로나 이후 운임 급등이 겹쳐 추정치가
+위로 치우쳤을 수 있고, 급등 국면인 2026년 2분기에는 {pt_q2:.2f}으로 낮습니다. 할증료는 발권 시점 기준으로
+월 단위 조정되므로 급등기에는 전가가 늦어집니다. 2022년 이후 표본은 관측치가 12개뿐이고 여객 계수가
+{pt['2022년 이후']['여객 계수']:,.0f}로 전체 표본({pt_full['여객 계수']:,.0f})보다 크게 작아, 물량 통제가 약한 추정입니다.
+모델과 대시보드는 코로나 영향이 적은 2022년 이후 추정치({pt['2022년 이후']['전가율']:.2f})를 반올림한 0.9를 기본값으로 씁니다.
+
+## 6. 부록 — 회귀 계수를 쓰지 않은 이유
 
 같은 데이터로 `Δln(유류비) ~ Δln(항공유) + Δln(환율) + Δln(매출)` 회귀를 돌리면
 항공유 {sens['jet_lagged 가격 계수']:.2f}, 환율 {sens['환율 계수']:.2f}, 매출 {sens['매출 계수']:.2f}가 나옵니다(R² {sens['R2']:.3f}).
@@ -198,7 +236,7 @@ Zero Cost Collar 등으로 헤지한다고 공시하는데, 기초자산이 원�
 표본을 바꾸면 환율 계수가 음수까지 내려갈 정도로 불안정해서, 구조적 탄력성으로 제시하지 않았습니다.
 민감도는 2장처럼 항등식으로 계산하는 편이 정확합니다.
 
-## 6. 한계
+## 7. 한계
 
 - **물량 대용치로 매출을 사용**했습니다. 매출에는 유류할증료가 들어 있어 가격 요인과 일부 겹칩니다.
   공시 수송실적(ASK·RPK)은 반기·연간 단위여서 분기 분석에 바로 쓸 수 없었습니다.
@@ -207,10 +245,13 @@ Zero Cost Collar 등으로 헤지한다고 공시하는데, 기초자산이 원�
 - **2025년 이후 전년 동기 비교는 연결 범위가 다릅니다.** 아시아나항공이 2024년 12월 31일 인수의제일로 연결됐습니다.
 - **분기 배분 오차**: 4분기 유류비는 연간에서 1~3분기를 뺀 값이고, 반기보고서의 3개월 칸을 2분기로 봤습니다.
 - 잔차에는 헤지 손익 귀속과 재고 효과가 섞여 있어, 순수한 연료 효율로 읽으면 안 됩니다.
+- **전가율의 물량 자료는 인천공항 국제선만** 포함합니다. 화물 항목이 2024년까지 `항공화물`, 2025년부터 `직화물`로
+  정의가 달라 회귀는 2019~2024년으로 한정했습니다.
 """
     out = ROOT / "output" / "cashflow_analysis.md"
     out.write_text(text, encoding="utf-8")
     print(f"저장: {out}")
+    print("전가율:", {k: round(float(r["전가율"]), 3) for k, r in pt.items()}, "2026Q2:", round(float(pt_q2), 3))
     print("차트: fuel_decomposition.png, crack.png, fuel_share.png, operating_bridge.png")
     print("\n민감도:", {k: (round(v, 3) if isinstance(v, float) else v) for k, v in sens.items()})
 

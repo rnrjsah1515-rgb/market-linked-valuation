@@ -106,3 +106,52 @@ def fuel_sensitivity(df: pd.DataFrame, price_col: str = "jet_lagged") -> dict:
     r2 = 1 - resid.var() / y.var()
     return {"상수": beta[0], f"{price_col} 가격 계수": beta[1], "환율 계수": beta[2], "매출 계수": beta[3],
             "R2": float(r2), "관측치": len(y)}
+
+
+def _prev_year(q: str) -> str:
+    return f"{int(q[:4]) - 1}{q[4:]}"
+
+
+def pass_through_frame(df: pd.DataFrame, volume: pd.DataFrame) -> pd.DataFrame:
+    """전가율 회귀에 쓰는 전년 동기 대비 차분 (억원, 백만 명, 천 톤).
+
+    유류비 가격효과 = 당분기 환산 소비량 × (항공유 4주 시차 × 환율) 변동.
+    환산 소비량이 유류비 / 단가 이므로 가격효과 = 유류비 × (1 − 전년 단가 / 당해 단가) 와 같다.
+    """
+    d = df.join(volume[["pax_m", "cargo_kt"]])
+    unit = d["jet_lagged"] * d["fx"]
+    rows = {}
+    for q in d.index:
+        p = _prev_year(q)
+        if p not in d.index:
+            continue
+        rows[q] = {"d_revenue": d.loc[q, "revenue"] - d.loc[p, "revenue"],
+                   "d_pax": d.loc[q, "pax_m"] - d.loc[p, "pax_m"],
+                   "d_cargo": d.loc[q, "cargo_kt"] - d.loc[p, "cargo_kt"],
+                   "price_effect": d.loc[q, "fuel_cost"] * (1 - unit[p] / unit[q])}
+    return pd.DataFrame.from_dict(rows, orient="index").dropna()
+
+
+def pass_through_regression(frame: pd.DataFrame, start: str, end: str) -> dict:
+    """Δ매출 = c + a·Δ여객 + b·Δ화물 + p·유류비 가격효과 (OLS). p 가 유류할증료 전가율."""
+    f = frame.loc[[q for q in frame.index if start <= q[:4] <= end]]
+    y = f["d_revenue"].to_numpy()
+    x = np.column_stack([np.ones(len(f)), f["d_pax"], f["d_cargo"], f["price_effect"]])
+    beta, *_ = np.linalg.lstsq(x, y, rcond=None)
+    resid = y - x @ beta
+    n, k = x.shape
+    se = np.sqrt(np.diag(resid @ resid / (n - k) * np.linalg.inv(x.T @ x)))
+    p, se_p = beta[3], se[3]
+    return {"표본": f"{start}~{end}", "관측치": n, "상수": beta[0], "여객 계수": beta[1], "화물 계수": beta[2],
+            "전가율": p, "t": p / se_p, "하한": p - 1.96 * se_p, "상한": p + 1.96 * se_p,
+            "R2": 1 - resid @ resid / ((y - y.mean()) @ (y - y.mean()))}
+
+
+def pass_through_quarter(frame: pd.DataFrame, q: str, pax_coef: float) -> float:
+    """단일 분기 전가율 = (Δ매출 − 여객 계수 × Δ여객) / 유류비 가격효과.
+
+    화물은 2025년부터 정의(직화물)가 달라 회귀 계수를 그대로 쓸 수 없어 빼고, 상수(추세)도 빼서
+    매출 변동 중 여객 물량으로 설명되지 않는 몫을 모두 유가 전가로 본다.
+    """
+    r = frame.loc[q]
+    return (r["d_revenue"] - pax_coef * r["d_pax"]) / r["price_effect"]
